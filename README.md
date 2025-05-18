@@ -179,22 +179,6 @@ Contact & Support
 For questions or contributions, please open issues or pull requests on the GitHub repository:
 https://github.com/dheeraj1301/ThreatNetAPI
 
-Thank you for using ThreatNetAPI — powering the next generation of intelligent vulnerability detection.
+### Thank you for using ThreatNetAPI — powering the next generation of intelligent vulnerability detection.
 
-```yaml
-
----
-
-Would you like me to help generate example test commands or a sample Postman collection for the API?
-
-```
-
-
-
-
-
-
-
-
-Search
 
