@@ -1,8 +1,7 @@
-# src/hyperparameter_tuning.py
 import optuna
 import torch
-from src.model_gnn import GNNModel, train_model, evaluate_model
 from sklearn.metrics import f1_score
+from src.model_gnn import GNNModel, train_model, evaluate_model
 
 def objective(trial, graph_data):
     hidden_dim = trial.suggest_categorical("hidden_dim", [32, 64, 128])
@@ -19,6 +18,8 @@ def run_optuna_study(graph_data, subset=False):
         idx = torch.randperm(len(graph_data.x))[:500]
         graph_data.x = graph_data.x[idx]
         graph_data.y = graph_data.y[idx]
+        # Remove edges that reference excluded nodes (not recommended for real use)
+        graph_data.edge_index = graph_data.edge_index[:, torch.all(graph_data.edge_index < 500, dim=0)]
 
     study = optuna.create_study(direction="maximize")
     study.optimize(lambda trial: objective(trial, graph_data), n_trials=20)

@@ -1,16 +1,13 @@
 # src/preprocessing.py
 from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 import pandas as pd
+import torch
+from torch_geometric.data import Data
+import numpy as np
 
 def stratified_train_test_split(df, stratify_col='severity', test_size=0.2, random_state=42):
-    """
-    Perform train/test split with stratification to keep label distribution balanced.
-    :param df: pandas DataFrame containing the dataset with a stratify_col column
-    :param stratify_col: column name to stratify on (e.g. severity)
-    :param test_size: fraction for test split
-    :param random_state: for reproducibility
-    :return: train_df, test_df
-    """
     train_df, test_df = train_test_split(
         df,
         test_size=test_size,
@@ -18,19 +15,13 @@ def stratified_train_test_split(df, stratify_col='severity', test_size=0.2, rand
         random_state=random_state
     )
     return train_df, test_df
-import pandas as pd
 
 def process_cve_data(cve_items):
-    """
-    Convert raw CVE JSON items into a pandas DataFrame with severity labels and description.
-    """
     rows = []
     for item in cve_items:
         cve_id = item['cve']['CVE_data_meta']['ID']
         description = item['cve']['description']['description_data'][0]['value']
-        # Example: Extract severity (use your actual path from JSON)
         severity = item.get('impact', {}).get('baseMetricV3', {}).get('cvssV3', {}).get('baseSeverity', 'UNKNOWN')
-        
         rows.append({
             'cve_id': cve_id,
             'description': description,
@@ -39,3 +30,30 @@ def process_cve_data(cve_items):
 
     df = pd.DataFrame(rows)
     return df
+
+def build_graph_data(df):
+    # Step 1: Encode text using TF-IDF
+    vectorizer = TfidfVectorizer(max_features=300)
+    tfidf_matrix = vectorizer.fit_transform(df['description']).toarray()
+    x = torch.tensor(tfidf_matrix, dtype=torch.float)
+
+    # Step 2: Create labels
+    severity_mapping = {'LOW': 0, 'MEDIUM': 1, 'HIGH': 2, 'CRITICAL': 3, 'UNKNOWN': -1}
+    y = torch.tensor([severity_mapping.get(sev, -1) for sev in df['severity']], dtype=torch.long)
+
+    # Step 3: Build edge_index using cosine similarity
+    similarity_matrix = cosine_similarity(tfidf_matrix)
+    threshold = 0.5  # You can tune this
+    edge_index = []
+
+    for i in range(similarity_matrix.shape[0]):
+        for j in range(similarity_matrix.shape[1]):
+            if i != j and similarity_matrix[i][j] > threshold:
+                edge_index.append([i, j])
+
+    edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
+
+    # Step 4: Return PyG Data object
+    data = Data(x=x, edge_index=edge_index, y=y)
+
+    return data
