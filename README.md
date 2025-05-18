@@ -23,33 +23,42 @@ The system ingests raw data and embeddings, builds graph representations, and us
 ## Installation & Setup
 
 1. Clone the repo:  
-git clone ```https://github.com/your-username/ThreatNetAPI.git```
+git clone``` https://github.com/dheeraj1301/ThreatNetAPI.git```
 ```cd ThreatNetAPI```
+
+```cpp
 
 
 2. Create and activate a virtual environment:  
-```python -m venv venv```
-```source venv/bin/activate # Linux/Mac```
-```venv\Scripts\activate # Windows```
+python -m venv venv
+source venv/bin/activate # Linux/Mac
+venv\Scripts\activate # Windows
+```
+```markdown
 
 
 3. Install dependencies:  
-```pip install -r requirements.txt```
-
+pip install -r requirements.txt
+```
+```kotlin
 
 4. Run initial data processing and model training:  
-```python main.py```
+python main.py
+```
 
+```markdown
 
 
 5. Start the API server:  
-```uvicorn api_server:app --reload```
+uvicorn api_server:app --reload
+```
+```yaml
 
 
 ---
 
 ## Project Structure
-```
+
 - `main.py` — Entry point: orchestrates data loading, graph building, model training, and hyperparameter tuning.  
 - `src/graph_builder.py` — Constructs graph data from raw inputs and embeddings.  
 - `src/model_gnn.py` — Defines GNN model architecture and training routines.  
@@ -57,9 +66,9 @@ git clone ```https://github.com/your-username/ThreatNetAPI.git```
 - `api_server.py` — FastAPI server exposing endpoints for prediction and monitoring.  
 - `dashboard/` — Frontend code for the brown-themed UI dashboard.  
 - `requirements.txt` — Python dependencies.  
-```
----
 
+---
+```
 ## Usage
 
 ### Individual Component Testing
@@ -72,31 +81,28 @@ graph = build_graph_data(sample_df, sample_embeddings)
 print(graph)
 ```
 Model Training
-
 Run standalone training on a small dataset to verify convergence:
 
-```
+```python
+
 from src.model_gnn import GNNModel, train_model  
 model = GNNModel(input_dim=embedding_dim)  
 train_model(model, graph_data, device="cpu", epochs=10, lr=0.01)
 ```
 Hyperparameter Tuning
-
 Run Optuna trials and verify improved metrics:
-```
-python
-Copy
-Edit
+
+```python
+
 from src.hyperparameter_tuning import run_optuna_study  
 best_params = run_optuna_study(graph_data)
 print(best_params)
 ```
 API Endpoints
 Use curl or Postman to send JSON payloads to the API and check responses. Example:
-```
-bash
-Copy
-Edit
+
+```bash
+
 POST /predict  
 Content-Type: application/json  
 { "data": ... }
@@ -174,16 +180,14 @@ For questions or contributions, please open issues or pull requests on the GitHu
 https://github.com/dheeraj1301/ThreatNetAPI
 
 Thank you for using ThreatNetAPI — powering the next generation of intelligent vulnerability detection.
-```
-yaml
-Copy
-Edit
+
+```yaml
 
 ---
 
 Would you like me to help generate example test commands or a sample Postman collection for the API?
-```
 
+```
 
 
 
@@ -193,13 +197,4 @@ Would you like me to help generate example test commands or a sample Postman col
 
 
 Search
-
-Reason
-
-Deep research
-
-Create image
-
-
-
 
