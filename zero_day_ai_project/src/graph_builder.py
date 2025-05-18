@@ -1,19 +1,22 @@
-import networkx as nx
+# src/graph_builder.py
 import torch
-from torch_geometric.utils import from_networkx
+from torch_geometric.data import Data
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
-def build_graph(cve_items, features):
-    G = nx.Graph()
-    
-    for i, item in enumerate(cve_items):
-        node_id = item['cve']['CVE_data_meta']['ID']
-        G.add_node(node_id, x=features[i])
+def build_graph_data(df, embeddings):
+    similarity_matrix = cosine_similarity(embeddings)
+    edge_index = []
+    threshold = 0.9  # Can be tuned
 
-        # Add dummy edges (for prototype) between nodes with shared keywords
-        for j in range(i):
-            if set(item['cve']['description']['description_data'][0]['value'].split()) & \
-               set(cve_items[j]['cve']['description']['description_data'][0]['value'].split()):
-                G.add_edge(node_id, cve_items[j]['cve']['CVE_data_meta']['ID'])
+    for i in range(len(df)):
+        for j in range(i + 1, len(df)):
+            if similarity_matrix[i][j] > threshold:
+                edge_index.append([i, j])
+                edge_index.append([j, i])
 
-    pyg_graph = from_networkx(G)
-    return pyg_graph
+    edge_index = torch.tensor(edge_index).t().contiguous()
+    x = torch.tensor(embeddings, dtype=torch.float)
+    y = torch.tensor(df['severity'].map({'LOW': 0, 'MEDIUM': 1, 'HIGH': 2, 'CRITICAL': 3}).values, dtype=torch.long)
+
+    return Data(x=x, edge_index=edge_index, y=y)
