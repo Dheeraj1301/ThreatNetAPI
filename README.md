@@ -1,184 +1,100 @@
-# ThreatNetAPI
+# ThreatNetAPI — Graph-Based CVE Severity Research Prototype
 
-## Overview
+**An experimental graph-neural-network pipeline for classifying recorded software vulnerabilities by severity.** The code parses a local NVD CVE feed, encodes vulnerability descriptions, builds a similarity graph and trains a two-layer graph convolutional network (GCN). Optuna provides a small hyperparameter-search experiment.
 
-**ThreatNetAPI** is an AI-powered API for automated vulnerability detection leveraging Graph Neural Networks (GNNs). Designed to analyze complex relationships in software or network data, ThreatNetAPI models security vulnerabilities as graph data, enabling highly accurate identification of potential threats — including zero-day vulnerabilities.
+> **Important:** Despite the repository name, the present implementation **does not demonstrate zero-day vulnerability discovery**. It is a CVE-severity research prototype using known records. A production REST inference API is **not currently implemented**; the separate Streamlit dashboard presents illustrative/demo data.
 
-The system ingests raw data and embeddings, builds graph representations, and uses advanced GNN architectures to classify vulnerability severity levels. It exposes a RESTful API allowing seamless integration with security tools, dashboards, and workflows.
+## Current scope
 
----
+| Area | Present in repository | Current limits |
+| --- | --- | --- |
+| CVE ingestion | Reads `data/raw/nvdcve-1.1-2024.json.gz` | Uses the older NVD 1.1 JSON feed format |
+| Labels | Extracts CVSS v3 severity labels (LOW/MEDIUM/HIGH/CRITICAL) | Some CVEs have UNKNOWN/missing severity |
+| Feature extraction | `bert-base-uncased` description embeddings | Model download/cache and CPU/GPU requirements |
+| Graph representation | Cosine-similarity edges via PyTorch Geometric `Data` | Small-sample, pairwise graph construction; graph may be sparse |
+| Model | Two GCN layers, dropout, four-class output | No measured independent test-set score published |
+| Search | Optuna explores hidden size, dropout and learning rate | Current tuning evaluates the training graph |
+| Interface | Standalone Streamlit demonstration | Metrics/plots use placeholder values, not trained GNN output |
 
-## Features
+## Architecture
 
-- **Graph-based vulnerability modeling:** Converts security-related data into graph structures to capture complex interdependencies.
-- **State-of-the-art GNN:** Utilizes multiple GCN layers to effectively learn node representations for classification.
-- **Automated hyperparameter tuning:** Uses Optuna to optimize model performance with minimal manual intervention.
-- **Efficient training pipeline:** Includes batching, dropout, and Adam optimizer for fast, stable convergence.
-- **RESTful API interface:** Provides easy endpoints for uploading data, running inference, and retrieving results.
-- **Dashboard UI:** Intuitive web interface with brown-themed design for visualizing model predictions and system status.
-- **Detailed logging and error handling:** Ensures robustness and easier troubleshooting.
-
----
-
-## Installation & Setup
-
-1. Clone the repo:  
-git clone``` https://github.com/dheeraj1301/ThreatNetAPI.git```
-```cd ThreatNetAPI```
-
-```cpp
-
-
-2. Create and activate a virtual environment:  
-python -m venv venv
-source venv/bin/activate # Linux/Mac
-venv\Scripts\activate # Windows
+```mermaid
+flowchart LR
+    A[("Local NVD CVE 2024 JSON.gz")] --> B["Parse CVE IDs, descriptions and CVSS severity"]
+    B --> C["Stratified train/test split"]
+    C --> D["BERT embeddings / optional cached tensor"]
+    D --> E["Cosine-similarity graph construction"]
+    E --> F["PyTorch Geometric: two-layer GCN"]
+    F --> G["Optuna tuning + model training"]
+    G --> H[("Versioned model checkpoint")]
+    G --> I["Classification report on current graph"]
+    J["Streamlit demo dashboard"] -.->|"not integrated with trained model"| G
 ```
-```markdown
 
+For the module-level flow and **validation caveats**, see [docs/architecture.md](docs/architecture.md).
 
-3. Install dependencies:  
-pip install -r requirements.txt
-```
-```kotlin
+## Try the experiment
 
-4. Run initial data processing and model training:  
+The Python training entry point is inside `zero_day_ai_project/`, **not** at the repository root.
+
+```bash
+git clone https://github.com/Dheeraj1301/ThreatNetAPI.git
+cd ThreatNetAPI
+python -m venv .venv
+# Linux/macOS: source .venv/bin/activate
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m pip install pandas numpy matplotlib transformers optuna
+cd zero_day_ai_project
 python main.py
 ```
 
-```markdown
+The repository's `requirements.txt` does not yet include every imported dependency (`transformers`, `optuna`, `pandas`, `matplotlib`). PyTorch Geometric and BERT installation may require additional platform-specific setup. The run also assumes the bundled NVD feed and cached embeddings are compatible with the processed training rows.
 
+The experiment currently limits the loaded feed to the first **1,000 CVE items** before processing. It creates graph features, runs an Optuna study, trains a GCN and writes model checkpoints to `results/model_logs/`.
 
-5. Start the API server:  
-uvicorn api_server:app --reload
-```
-```yaml
-
-
----
-
-## Project Structure
-
-- `main.py` — Entry point: orchestrates data loading, graph building, model training, and hyperparameter tuning.  
-- `src/graph_builder.py` — Constructs graph data from raw inputs and embeddings.  
-- `src/model_gnn.py` — Defines GNN model architecture and training routines.  
-- `src/hyperparameter_tuning.py` — Implements Optuna-based automated hyperparameter optimization.  
-- `api_server.py` — FastAPI server exposing endpoints for prediction and monitoring.  
-- `dashboard/` — Frontend code for the brown-themed UI dashboard.  
-- `requirements.txt` — Python dependencies.  
-
----
-```
-## Usage
-
-### Individual Component Testing
-
-- **Graph Builder**  
-Test graph construction with a sample dataset:  
-```python
-from src.graph_builder import build_graph_data  
-graph = build_graph_data(sample_df, sample_embeddings)  
-print(graph)
-```
-Model Training
-Run standalone training on a small dataset to verify convergence:
-
-```python
-
-from src.model_gnn import GNNModel, train_model  
-model = GNNModel(input_dim=embedding_dim)  
-train_model(model, graph_data, device="cpu", epochs=10, lr=0.01)
-```
-Hyperparameter Tuning
-Run Optuna trials and verify improved metrics:
-
-```python
-
-from src.hyperparameter_tuning import run_optuna_study  
-best_params = run_optuna_study(graph_data)
-print(best_params)
-```
-API Endpoints
-Use curl or Postman to send JSON payloads to the API and check responses. Example:
+The standalone illustrative dashboard can be launched separately from the same directory:
 
 ```bash
-
-POST /predict  
-Content-Type: application/json  
-{ "data": ... }
+python -m streamlit run app.py
 ```
-Dashboard
-Run the dashboard frontend and verify UI components load with the brown/off-white color scheme.
 
-Final Pipeline Testing
-Load real or synthetic data, build graph representation.
+**Do not treat dashboard example loss curves, metrics, or severity predictions as measured GNN outputs.** Its controls and plots are currently demonstrative.
 
-Use optimized hyperparameters from Optuna to train the model fully.
+## Repository structure
 
-Evaluate model performance on validation/test data: accuracy, F1-score, confusion matrix.
+```text
+zero_day_ai_project/
+├── main.py                   End-to-end experiment script
+├── app.py                    Separate Streamlit demonstration
+├── src/
+│   ├── data_ingestion.py     NVD 1.1 file loader
+│   ├── preprocessing.py      Severity extraction and stratified split
+│   ├── embedding.py          BERT description features
+│   ├── graph_builder.py      Cosine-similarity graph construction
+│   ├── model_gnn.py          GCN model, fit and evaluation
+│   └── hyperparameter_tuning.py  Optuna study
+├── data/raw/                 Source NVD example file
+├── data/processed/           Cached embeddings
+└── results/model_logs/       Saved model files
+```
 
-Deploy trained model in the API backend for inference.
+## Methodology and current validation gaps
 
-Send test requests to API and verify correct predictions.
+The `main.py` workflow creates a stratified split but builds and evaluates the graph from **training rows**. Optuna also scores candidate configurations using the **same graph** rather than a separate validation partition. Therefore the printed classification report is **not a held-out generalization metric**, and no benchmark accuracy should be claimed from it.
 
-View real-time predictions and analytics on the dashboard UI.
+Before describing the model as capable of detecting unseen vulnerabilities, the project would need:
 
-Effectiveness & Performance
-Accuracy: Achieves high classification accuracy due to graph-based relational learning.
+1. Correctly aligned embeddings and labels after filtering missing/unknown severities, plus safeguards for graphs with no edges.
+2. Leakage-free train/validation/test evaluation on chronologically separated CVEs, class-imbalance analysis and repeatable seeds.
+3. Clear held-out macro-F1, recall, confusion matrix and classical text-classifier baselines.
+4. An actual authenticated inference API and a dashboard connected to the saved model, with tests.
+5. A separate experimental definition and evidence for any claim of previously unknown (“zero-day”) vulnerability detection.
 
-Robustness: Model handles various types of vulnerabilities, including unseen patterns (zero-day).
+## Technologies
 
-Speed: Uses GPU acceleration and efficient data loaders for fast training and inference.
+Python, PyTorch, PyTorch Geometric, scikit-learn, BERT/Transformers, NetworkX, Optuna, Streamlit.
 
-Automated Tuning: Optuna tuning reduces manual hyperparameter search time drastically.
+## License
 
-API Response: Lightweight FastAPI backend ensures low-latency predictions suitable for integration.
-
-Optimizations
-Graph Sampling: For large datasets, graph sampling methods reduce memory and computation overhead.
-
-Early Stopping: Stops training when validation loss stagnates, saving time and avoiding overfitting.
-
-Batching: Mini-batch training to handle large graphs effectively.
-
-Dropout Regularization: Prevents overfitting in GNN layers.
-
-Learning Rate Scheduling: Dynamic adjustment of learning rate improves convergence speed.
-
-Parallel API Serving: Deploy with Uvicorn/Gunicorn with multiple workers for scalable inference.
-
-Troubleshooting & FAQs
-Error: "Found unmapped severity labels: ['UNKNOWN']"
-Ensure all severity labels in your dataset are mapped to known classes before graph building.
-Update preprocessing to handle or filter unknown labels.
-
-Error: "Target is out of bounds" during training
-Check your target labels are valid class indices [0, num_classes-1] and properly encoded.
-
-Model fails to train or diverges
-Lower learning rate, increase dropout, or check data quality. Use Optuna tuning to find better hyperparameters.
-
-API not responding
-Check if the FastAPI server is running and accessible on the correct port. Inspect logs for exceptions.
-
-Dashboard UI doesn’t load or is blank
-Verify static files are served correctly and dependencies (React/JS) are installed if applicable.
-
-Future Improvements
-Integrate more advanced GNN models (e.g., GraphSAGE, GAT) for improved representation learning.
-
-Add real-time vulnerability alerting and automated patch recommendations.
-
-Enhance API security with authentication and rate limiting.
-
-Build CI/CD pipelines for automated model retraining and deployment.
-
-Support multi-modal inputs including text, network logs, and binary code analysis.
-
-Contact & Support
-For questions or contributions, please open issues or pull requests on the GitHub repository:
-https://github.com/dheeraj1301/ThreatNetAPI
-
-### Thank you for using ThreatNetAPI — powering the next generation of intelligent vulnerability detection.
-
-
+[MIT](LICENSE).
